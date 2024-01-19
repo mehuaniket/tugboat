@@ -1,0 +1,12 @@
+apiVersion: apps.tugboat.cloudrasayan.com/v1
+kind: BroadcastJob
+metadata:
+  labels:
+    app.kubernetes.io/name: broadcastjob
+    app.kubernetes.io/instance: broadcastjob-sample
+    app.kubernetes.io/part-of: tugboat
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: tugboat
+  name: broadcastjob-sample
+spec:
+  # TODO(user): Add fields here
