@@ -9,4 +9,14 @@ metadata:
     app.kubernetes.io/created-by: tugboat
   name: broadcastjob-sample
 spec:
-  # TODO(user): Add fields here
+  template:
+    spec:
+      containers:
+        - name: pi
+          image: perl
+          command: [ "perl", "-Mbignum=bpi", "-wle", "print bpi(2000)" ]
+  restartLimit: 3 #number of retry allowed for each node
+
+
+
+

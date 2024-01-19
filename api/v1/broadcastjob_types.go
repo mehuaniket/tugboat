@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,14 +30,104 @@ type BroadcastJobSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of BroadcastJob. Edit broadcastjob_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Template     v1.PodTemplateSpec `json:"template" protobuf:"bytes,2,opt,name=template"`
+	RestartLimit int32              `json:"restartLimit,omitempty" protobuf:"varint,2,opt,name=restartLimit"`
 }
 
 // BroadcastJobStatus defines the observed state of BroadcastJob
+// BroadcastJobStatus defines the observed state of BroadcastJob
 type BroadcastJobStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// The latest available observations of an object's current state.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []JobCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	// Represents time when the job was acknowledged by the job controller.
+	// It is not guaranteed to be set in happens-before order across separate operations.
+	// It is represented in RFC3339 form and is in UTC.
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty" protobuf:"bytes,2,opt,name=startTime"`
+
+	// Represents time when the job was completed. It is not guaranteed to
+	// be set in happens-before order across separate operations.
+	// It is represented in RFC3339 form and is in UTC.
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty" protobuf:"bytes,3,opt,name=completionTime"`
+
+	// The number of actively running pods.
+	// +optional
+	Active int32 `json:"active" protobuf:"varint,4,opt,name=active"`
+
+	// The number of pods which reached phase Succeeded.
+	// +optional
+	Succeeded int32 `json:"succeeded" protobuf:"varint,5,opt,name=succeeded"`
+
+	// The number of pods which reached phase Failed.
+	// +optional
+	Failed int32 `json:"failed" protobuf:"varint,6,opt,name=failed"`
+
+	// The desired number of pods, this is typically equal to the number of nodes satisfied to run pods.
+	// +optional
+	Desired int32 `json:"desired" protobuf:"varint,7,opt,name=desired"`
+
+	// The phase of the job.
+	// +optional
+	Phase BroadcastJobPhase `json:"phase" protobuf:"varint,8,opt,name=phase"`
 }
+
+// JobConditionType indicates valid conditions type of a job
+type JobConditionType string
+
+// These are valid conditions of a job.
+const (
+	// JobComplete means the job has completed its execution. A complete job means pods have been deployed on all
+	// eligible nodes and all pods have reached succeeded or failed state. Note that the eligible nodes are defined at
+	// the beginning of a reconciliation loop. If there are more nodes added within a reconciliation loop, those nodes will
+	// not be considered to run pods.
+	JobComplete JobConditionType = "Complete"
+
+	// JobFailed means the job has failed its execution. A failed job means the job has either exceeded the
+	// ActiveDeadlineSeconds limit, or the aggregated number of container restarts for all pods have exceeded the RestartLimit.
+	JobFailed JobConditionType = "Failed"
+)
+
+// JobCondition describes current state of a job.
+type JobCondition struct {
+	// Type of job condition, Complete or Failed.
+	Type JobConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=JobConditionType"`
+	// Status of the condition, one of True, False, Unknown.
+	Status v1.ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=k8s.io/api/core/v1.ConditionStatus"`
+	// Last time the condition was checked.
+	// +optional
+	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty" protobuf:"bytes,3,opt,name=lastProbeTime"`
+	// Last time the condition transit from one status to another.
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,4,opt,name=lastTransitionTime"`
+	// (brief) reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
+	// Human readable message indicating details about last transition.
+	// +optional
+	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
+}
+
+// BroadcastJobPhase indicates the phase of the job.
+type BroadcastJobPhase string
+
+const (
+	// PhaseCompleted means the job is completed.
+	PhaseCompleted BroadcastJobPhase = "completed"
+
+	// PhaseRunning means the job is running.
+	PhaseRunning BroadcastJobPhase = "running"
+
+	// PhasePaused means the job is paused.
+	PhasePaused BroadcastJobPhase = "paused"
+
+	// PhaseFailed means the job is failed.
+	PhaseFailed BroadcastJobPhase = "failed"
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
