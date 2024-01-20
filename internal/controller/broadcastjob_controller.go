@@ -20,13 +20,16 @@ import (
 	"context"
 	"fmt"
 	appsv1 "github.com/cloudrasayan/tugboat/api/v1"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"time"
 )
 
 // BroadcastJobReconciler reconciles a BroadcastJob object
@@ -52,17 +55,24 @@ func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	log := log.FromContext(ctx)
 	// Fetch the BroadcastJob custom resource
 	bdjobs := &appsv1.BroadcastJob{}
-	klog.Info("broadcastjob", bdjobs)
 	klog.Info(req.Name, req.Namespace)
-	fmt.Println("Hello World!")
-
 	err := r.Get(ctx, req.NamespacedName, bdjobs)
 	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if errors.IsNotFound(err) {
+			// Object not found, return. Created objects are automatically garbage collected.
+			return ctrl.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return ctrl.Result{}, err
+	}
+
+	if bdjobs.Status.Phase == appsv1.PhaseCompleted || bdjobs.Status.Phase == appsv1.PhaseFailed {
+		// Do nothing
+		return ctrl.Result{}, nil
 	}
 
 	// List all nodes in the cluster
-	nodeList := &corev1.NodeList{}
+	nodeList := &v1.NodeList{}
 	err = r.List(ctx, nodeList, client.MatchingLabels(bdjobs.Spec.NodeSelector))
 	if err != nil {
 		log.Info("Checking nodelist")
@@ -70,78 +80,136 @@ func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// List all pods owned by this BroadcastJob instance
-	podList := &corev1.PodList{}
-	err = r.List(ctx, podList, client.InNamespace(req.Namespace), client.MatchingLabels(bdjobs.Spec.Labels))
+	podList := &v1.PodList{}
+	err = r.List(ctx, podList, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}, client.MatchingLabels(bdjobs.Spec.Labels))
 	if err != nil {
 		log.Info("Checking podlist")
 		return ctrl.Result{}, err
 	}
 
-	// Create a pod for each node that does not have one
-	for _, node := range nodeList.Items {
-		if !hasPodOnNode(podList, node.Name) {
-			pod := newPodForCR(bdjobs, node.Name)
-			err = r.Create(ctx, pod)
+	// Count the pods that are active, succeeded, failed or desired
+	activePods := int32(0)
+	succeededPods := int32(0)
+	failedPods := int32(0)
+	desiredPods := int32(len(nodeList.Items))
+
+	// Iterate over the pod list and update the status of each pod
+	for _, pod := range podList.Items {
+		// Check if the pod has completed successfully
+		if pod.Status.Phase == v1.PodSucceeded {
+			// Update the pod status to completed
+			pod.Status.Conditions = append(pod.Status.Conditions, v1.PodCondition{
+				Type:               v1.PodReady,
+				Status:             v1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "PodCompleted",
+				Message:            "Pod has completed successfully",
+			})
+			// Update the pod status subresource
+			err = r.Status().Update(ctx, &pod)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	}
-
-	// Delete any extra pods that have a different node name
 	for _, pod := range podList.Items {
-		if !hasNodeInList(nodeList, pod.Spec.NodeName) {
-			err = r.Delete(ctx, &pod)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
+		switch pod.Status.Phase {
+		case v1.PodRunning, v1.PodPending:
+			activePods++
+		case v1.PodSucceeded:
+			succeededPods++
+		case v1.PodFailed:
+			failedPods++
+		}
+	}
+
+	// Update the status of the BroadcastJob
+	bdjobs.Status.Active = activePods
+	bdjobs.Status.Succeeded = succeededPods
+	bdjobs.Status.Failed = failedPods
+	bdjobs.Status.Desired = desiredPods
+	if activePods == 0 && desiredPods == succeededPods {
+		bdjobs.Status.Phase = appsv1.PhaseCompleted
+		bdjobs.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+	} else {
+		bdjobs.Status.Phase = appsv1.PhaseRunning
+	}
+	err = r.Status().Update(ctx, bdjobs)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Create pods on each node
+	for _, node := range nodeList.Items {
+		// Check if the pod already exists on this node
+		podName := fmt.Sprintf("%s-%s", bdjobs.Name, node.Name)
+		pod := &v1.Pod{}
+		err = r.Get(ctx, client.ObjectKey{Namespace: bdjobs.Namespace, Name: podName}, pod)
+		if err == nil {
+			// Pod already exists, do nothing
+			continue
+		}
+		if !errors.IsNotFound(err) {
+			// Error reading the pod, requeue the request
+			return ctrl.Result{}, err
+		}
+
+		// Create a new pod on this node
+		pod = &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: bdjobs.Namespace,
+				Labels:    bdjobs.Spec.Labels,
+			},
+			Spec: bdjobs.Spec.Template.Spec,
+		}
+		// Set the BroadcastJob as the owner of the pod
+		if err := controllerutil.SetControllerReference(bdjobs, pod, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+		pod.Spec.RestartPolicy = "Never"
+		// Set the node selector to this node
+		pod.Spec.NodeSelector = map[string]string{
+			"kubernetes.io/hostname": node.Name,
+		}
+		// Create the pod
+		err = r.Create(ctx, pod)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// newPodForCR returns a pod with the same spec as the BroadcastJob instance
-func newPodForCR(cr *appsv1.BroadcastJob, nodeName string) *corev1.Pod {
-	labels := cr.Spec.Labels
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", cr.Name, nodeName),
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers:         cr.Spec.Template.Spec.Containers,
-			Volumes:            cr.Spec.Template.Spec.Volumes,
-			ServiceAccountName: cr.Spec.Template.Spec.ServiceAccountName,
-			NodeName:           nodeName,
-		},
-	}
-}
-
-// hasPodOnNode returns true if the pod list contains a pod that is scheduled on the given node
-func hasPodOnNode(podList *corev1.PodList, nodeName string) bool {
-	for _, pod := range podList.Items {
-		if pod.Spec.NodeName == nodeName {
-			return true
-		}
-	}
-	return false
-}
-
-// hasNodeInList returns true if the node list contains a node with the given name
-func hasNodeInList(nodeList *corev1.NodeList, nodeName string) bool {
-	for _, node := range nodeList.Items {
-		if node.Name == nodeName {
-			return true
-		}
-	}
-	return false
-}
+var (
+	jobOwnerKey = ".metadata.controller"
+	apiGVStr    = appsv1.GroupVersion.String()
+)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BroadcastJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.Pod{}, jobOwnerKey, func(rawObj client.Object) []string {
+		// grab the job object, extract the owner...
+		pod := rawObj.(*v1.Pod)
+		owner := metav1.GetControllerOf(pod)
+		if owner == nil {
+			return nil
+		}
+		// ...make sure it's a CronJob...
+		if owner.APIVersion != apiGVStr || owner.Kind != "BroadcastJob" {
+			return nil
+		}
+
+		// ...and if so, return it
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.BroadcastJob{}).
+		Owns(&v1.Pod{}).
 		Complete(r)
 }

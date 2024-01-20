@@ -37,7 +37,6 @@ type BroadcastJobSpec struct {
 }
 
 // BroadcastJobStatus defines the observed state of BroadcastJob
-// BroadcastJobStatus defines the observed state of BroadcastJob
 type BroadcastJobStatus struct {
 	// The latest available observations of an object's current state.
 	// +optional
