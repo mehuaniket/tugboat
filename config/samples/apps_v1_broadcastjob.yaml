@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: tugboat
   name: broadcastjob-sample
+  namespace: default
 spec:
   template:
     spec:
@@ -16,6 +17,10 @@ spec:
           image: perl
           command: [ "perl", "-Mbignum=bpi", "-wle", "print bpi(2000)" ]
   restartLimit: 3 #number of retry allowed for each node
+  labels:
+    kubernetes.io/hostname: microk8s-vm
+  nodeSelector:
+    kubernetes.io/os: linux
 
 
 

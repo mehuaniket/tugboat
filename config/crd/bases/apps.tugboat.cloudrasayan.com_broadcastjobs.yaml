@@ -34,6 +34,14 @@ spec:
           spec:
             description: BroadcastJobSpec defines the desired state of BroadcastJob
             properties:
+              labels:
+                additionalProperties:
+                  type: string
+                type: object
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
               restartLimit:
                 format: int32
                 type: integer
