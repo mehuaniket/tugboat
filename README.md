@@ -1,77 +1,22 @@
-# tugboat
-// TODO(user): Add simple overview of use/purpose
+# Tugboat
 
+Minimal version of `openkruise/kruise`. It was named Tugboat because it does minimal tasks with a small footprint compared to Kruise.
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+Introducing a lightweight Kubernetes operator for BroadcastJobs, enabling efficient pod deployment across your cluster.
 
-## Getting Started
+### Key Features:
 
-### Prerequisites
-- go version v1.20.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+- **Effortless Node-Wide Deployments:** Seamlessly create BroadcastJobs to launch pods on all eligible nodes, streamlining cluster-wide operations.
+- **Precise Node Selection:** Customize pod placement with node selectors for granular control.
+- **Restart Management:** Define restart limits for individual pods to ensure resilience and manage potential failures.
+- **Minimal Footprint:** Designed for efficiency with a smaller resource footprint than OpenKruise, ideal for resource-conscious environments.
+- **Perfect for Learning Go:** Built as a learning project, it showcases Go development practices while creating a valuable Kubernetes tool.
+Ideal for:
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
-
-```sh
-make docker-build docker-push IMG=<some-registry>/tugboat:tag
-```
-
-**NOTE:** This image ought to be published in the personal registry you specified. 
-And it is required to have access to pull the image from the working environment. 
-Make sure you have the proper permission to the registry if the above commands don’t work.
-
-**Install the CRDs into the cluster:**
-
-```sh
-make install
-```
-
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
-
-```sh
-make deploy IMG=<some-registry>/tugboat:tag
-```
-
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin 
-privileges or be logged in as admin.
-
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
-```
-
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+Cluster-wide maintenance tasks
+Diagnostics and data collection
+Distributing workloads across all nodes
+Get started today and experience effortless cluster-wide pod deployments!
 
 ## License
 
