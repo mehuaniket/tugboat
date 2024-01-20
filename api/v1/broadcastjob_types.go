@@ -30,10 +30,12 @@ type BroadcastJobSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of BroadcastJob. Edit broadcastjob_types.go to remove/update
-	Template     v1.PodTemplateSpec `json:"template" protobuf:"bytes,2,opt,name=template"`
-	RestartLimit int32              `json:"restartLimit,omitempty" protobuf:"varint,2,opt,name=restartLimit"`
-	NodeSelector map[string]string  `json:"nodeSelector,omitempty"`
-	Labels       map[string]string  `json:"labels,omitempty"`
+	Template v1.PodTemplateSpec `json:"template" protobuf:"bytes,2,opt,name=template"`
+	//RestartLimit int32              `json:"restartLimit,omitempty" protobuf:"varint,2,opt,name=restartLimit"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	// +kubebuilder:validation:Format=duration
+	CleanupAfter string `json:"cleanupafter,omitempty"`
 }
 
 // BroadcastJobStatus defines the observed state of BroadcastJob

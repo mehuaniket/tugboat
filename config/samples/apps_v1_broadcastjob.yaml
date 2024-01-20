@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/part-of: tugboat
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: tugboat
-  name: broadcastjob-sample
+  name: hello-world-broadcastjob
   namespace: default
 spec:
   template:
@@ -15,11 +15,12 @@ spec:
       containers:
         - name: helloworld
           image: hello-world
-  restartLimit: 3 #number of retry allowed for each node
+  # restartLimit: 3 #number of retry allowed for each node
   labels:
     kubernetes.io/hostname: microk8s-vm
   nodeSelector:
     kubernetes.io/os: linux
+  cleanupafter: 30s
 
 
 

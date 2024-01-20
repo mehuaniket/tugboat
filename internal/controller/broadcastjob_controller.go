@@ -92,7 +92,6 @@ func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	succeededPods := int32(0)
 	failedPods := int32(0)
 	desiredPods := int32(len(nodeList.Items))
-
 	// Iterate over the pod list and update the status of each pod
 	for _, pod := range podList.Items {
 		// Check if the pod has completed successfully
@@ -107,11 +106,25 @@ func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			})
 			// Update the pod status subresource
 			err = r.Status().Update(ctx, &pod)
+			// Parse the cleanupAfter value as a duration
+			duration, err := time.ParseDuration(bdjobs.Spec.CleanupAfter)
+			if err != nil {
+				klog.Warningf("Invalid cleanupAfter value for Job %s/%s: %s", bdjobs.Namespace, bdjobs.Name, bdjobs.Spec.CleanupAfter)
+				continue
+			}
+			time.AfterFunc(duration, func() {
+				err = r.Delete(ctx, &pod)
+				if err != nil {
+					panic(err)
+				}
+			})
+
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	}
+
 	for _, pod := range podList.Items {
 		switch pod.Status.Phase {
 		case v1.PodRunning, v1.PodPending:
@@ -167,11 +180,9 @@ func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err := controllerutil.SetControllerReference(bdjobs, pod, r.Scheme); err != nil {
 			return ctrl.Result{}, err
 		}
-		pod.Spec.RestartPolicy = "Never"
+		pod.Spec.RestartPolicy = v1.RestartPolicyOnFailure
 		// Set the node selector to this node
-		pod.Spec.NodeSelector = map[string]string{
-			"kubernetes.io/hostname": node.Name,
-		}
+		pod.Spec.NodeSelector = bdjobs.Spec.NodeSelector
 		// Create the pod
 		err = r.Create(ctx, pod)
 		if err != nil {

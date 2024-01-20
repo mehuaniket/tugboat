@@ -34,6 +34,9 @@ spec:
           spec:
             description: BroadcastJobSpec defines the desired state of BroadcastJob
             properties:
+              cleanupafter:
+                format: duration
+                type: string
               labels:
                 additionalProperties:
                   type: string
@@ -41,10 +44,9 @@ spec:
               nodeSelector:
                 additionalProperties:
                   type: string
+                description: RestartLimit int32              `json:"restartLimit,omitempty"
+                  protobuf:"varint,2,opt,name=restartLimit"`
                 type: object
-              restartLimit:
-                format: int32
-                type: integer
               template:
                 description: Foo is an example field of BroadcastJob. Edit broadcastjob_types.go
                   to remove/update
