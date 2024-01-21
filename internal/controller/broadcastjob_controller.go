@@ -114,9 +114,9 @@ func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 			time.AfterFunc(duration, func() {
 				err = r.Delete(ctx, &pod)
-				if err != nil {
-					panic(err)
-				}
+				//if err != nil {
+				//	panic(err)
+				//}
 			})
 
 			if err != nil {

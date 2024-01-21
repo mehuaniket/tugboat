@@ -1,0 +1,24 @@
+apiVersion: apps.tugboat.cloudrasayan.com/v1
+kind: CronBroadcastJob
+metadata:
+  labels:
+    app.kubernetes.io/name: cronbroadcastjob
+    app.kubernetes.io/instance: cronbroadcastjob-sample
+    app.kubernetes.io/part-of: tugboat
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: tugboat
+  name: cronbroadcastjob-sample
+spec:
+  schedule: "*/2 * * * *"
+  broadcastJobTemplate:
+    template:
+      spec:
+        containers:
+          - name: helloworld
+            image: hello-world
+    # restartLimit: 3 #number of retry allowed for each node
+    labels:
+      kubernetes.io/hostname: microk8s-vm
+    nodeSelector:
+      kubernetes.io/os: linux
+    cleanupafter: 30s

@@ -1,4 +1,5 @@
 ## Append samples of your project ##
 resources:
 - apps_v1_broadcastjob.yaml
+- apps_v1_cronbroadcastjob.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

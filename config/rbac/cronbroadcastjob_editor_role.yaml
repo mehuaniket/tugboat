@@ -1,0 +1,31 @@
+# permissions for end users to edit cronbroadcastjobs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: cronbroadcastjob-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: tugboat
+    app.kubernetes.io/part-of: tugboat
+    app.kubernetes.io/managed-by: kustomize
+  name: cronbroadcastjob-editor-role
+rules:
+- apiGroups:
+  - apps.tugboat.cloudrasayan.com
+  resources:
+  - cronbroadcastjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.tugboat.cloudrasayan.com
+  resources:
+  - cronbroadcastjobs/status
+  verbs:
+  - get
