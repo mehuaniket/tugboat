@@ -19,16 +19,17 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
+
 	appsv1 "github.com/cloudrasayan/tugboat/api/v1"
 	"github.com/robfig/cron"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ref "k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 )
 
 // CronBroadcastJobReconciler reconciles a CronBroadcastJob object
@@ -93,7 +94,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	*/
 	isJobFinished := func(job *appsv1.BroadcastJob) (bool, appsv1.JobConditionType) {
 		for _, c := range job.Status.Conditions {
-			if (c.Type == appsv1.JobComplete || c.Type == appsv1.JobFailed) && c.Status == corev1.ConditionTrue {
+			if c.Type == appsv1.JobConditionType(appsv1.PhaseCompleted) || c.Type == appsv1.JobConditionType(appsv1.PhaseFailed) {
 				return true, c.Type
 			}
 		}
@@ -119,9 +120,9 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		switch finishedType {
 		case "": // ongoing
 			activeJobs = append(activeJobs, &childJobs.Items[i])
-		case appsv1.JobFailed:
+		case appsv1.JobConditionType(appsv1.PhaseFailed):
 			failedJobs = append(failedJobs, &childJobs.Items[i])
-		case appsv1.JobComplete:
+		case appsv1.JobConditionType(appsv1.PhaseCompleted):
 			successfulJobs = append(successfulJobs, &childJobs.Items[i])
 		}
 
@@ -174,6 +175,46 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err := r.Status().Update(ctx, cbj); err != nil {
 		log.Error(err, "unable to update CronJob status")
 		return ctrl.Result{}, err
+	}
+
+	// NB: deleting these are "best effort" -- if we fail on a particular one,
+	// we won't requeue just to finish the deleting.
+	if cbj.Spec.FailedJobsHistoryLimit != nil {
+		sort.Slice(failedJobs, func(i, j int) bool {
+			if failedJobs[i].Status.StartTime == nil {
+				return failedJobs[j].Status.StartTime != nil
+			}
+			return failedJobs[i].Status.StartTime.Before(failedJobs[j].Status.StartTime)
+		})
+		for i, job := range failedJobs {
+			if int32(i) >= int32(len(failedJobs))-*cbj.Spec.FailedJobsHistoryLimit {
+				break
+			}
+			if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+				log.Error(err, "unable to delete old failed job", "job", job)
+			} else {
+				log.V(0).Info("deleted old failed job", "job", job)
+			}
+		}
+	}
+
+	if cbj.Spec.SuccessfulJobsHistoryLimit != nil {
+		sort.Slice(successfulJobs, func(i, j int) bool {
+			if successfulJobs[i].Status.StartTime == nil {
+				return successfulJobs[j].Status.StartTime != nil
+			}
+			return successfulJobs[i].Status.StartTime.Before(successfulJobs[j].Status.StartTime)
+		})
+		for i, job := range successfulJobs {
+			if int32(i) >= int32(len(successfulJobs))-*cbj.Spec.SuccessfulJobsHistoryLimit {
+				break
+			}
+			if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+				log.Error(err, "unable to delete old successful job", "job", job)
+			} else {
+				log.V(0).Info("deleted old successful job", "job", job)
+			}
+		}
 	}
 
 	/*

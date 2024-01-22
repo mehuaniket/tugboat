@@ -10,6 +10,8 @@ metadata:
   name: cronbroadcastjob-sample
 spec:
   schedule: "*/2 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
   broadcastJobTemplate:
     template:
       spec:

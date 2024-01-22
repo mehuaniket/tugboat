@@ -30,8 +30,16 @@ type CronBroadcastJobSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of CronBroadcastJob. Edit cronbroadcastjob_types.go to remove/update
-	Schedule             string           `json:"schedule" protobuf:"bytes,1,opt,name=schedule"`
-	BroadcastJobTemplate BroadcastJobSpec `json:"broadcastJobTemplate,omitempty" protobuf:"bytes,2,opt,name=broadcastJobTemplate"`
+	Schedule                   string           `json:"schedule" protobuf:"bytes,1,opt,name=schedule"`
+	BroadcastJobTemplate       BroadcastJobSpec `json:"broadcastJobTemplate,omitempty" protobuf:"bytes,2,opt,name=broadcastJobTemplate"`
+	SuccessfulJobsHistoryLimit *int32           `json:"successfulJobsHistoryLimit,omitempty"`
+
+	//+kubebuilder:validation:Minimum=0
+
+	// The number of failed finished jobs to retain.
+	// This is a pointer to distinguish between explicit zero and not specified.
+	// +optional
+	FailedJobsHistoryLimit *int32 `json:"failedJobsHistoryLimit,omitempty"`
 }
 
 // CronBroadcastJobStatus defines the observed state of CronBroadcastJob

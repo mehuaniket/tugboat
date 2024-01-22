@@ -19,6 +19,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
+
 	appsv1 "github.com/cloudrasayan/tugboat/api/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 )
 
 // BroadcastJobReconciler reconciles a BroadcastJob object
@@ -53,12 +54,13 @@ type BroadcastJobReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
+	log.Info("Reconciling BroadcastJob", "name", req.Name, "namespace", req.Namespace)
 	// Fetch the BroadcastJob custom resource
 	bdjobs := &appsv1.BroadcastJob{}
-	klog.Info(req.Name, req.Namespace)
 	err := r.Get(ctx, req.NamespacedName, bdjobs)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			log.Info("Error reconciling Pods")
 			// Object not found, return. Created objects are automatically garbage collected.
 			return ctrl.Result{}, nil
 		}
@@ -75,7 +77,7 @@ func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	nodeList := &v1.NodeList{}
 	err = r.List(ctx, nodeList, client.MatchingLabels(bdjobs.Spec.NodeSelector))
 	if err != nil {
-		log.Info("Checking nodelist")
+		log.Error(err, "Error reconciling Nodeslist")
 		return ctrl.Result{}, err
 	}
 
@@ -83,7 +85,7 @@ func (r *BroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	podList := &v1.PodList{}
 	err = r.List(ctx, podList, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}, client.MatchingLabels(bdjobs.Spec.Labels))
 	if err != nil {
-		log.Info("Checking podlist")
+		log.Error(err, "Error reconciling Pods")
 		return ctrl.Result{}, err
 	}
 

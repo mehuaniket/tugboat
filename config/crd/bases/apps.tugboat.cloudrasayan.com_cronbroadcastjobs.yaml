@@ -7940,10 +7940,19 @@ spec:
                 required:
                 - template
                 type: object
+              failedJobsHistoryLimit:
+                description: The number of failed finished jobs to retain. This is
+                  a pointer to distinguish between explicit zero and not specified.
+                format: int32
+                minimum: 0
+                type: integer
               schedule:
                 description: Foo is an example field of CronBroadcastJob. Edit cronbroadcastjob_types.go
                   to remove/update
                 type: string
+              successfulJobsHistoryLimit:
+                format: int32
+                type: integer
             required:
             - schedule
             type: object
