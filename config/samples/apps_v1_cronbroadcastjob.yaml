@@ -23,4 +23,4 @@ spec:
       kubernetes.io/hostname: microk8s-vm
     nodeSelector:
       kubernetes.io/os: linux
-    cleanupafter: 30s
+    cleanupafter: 500s

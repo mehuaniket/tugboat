@@ -77,7 +77,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	var childJobs appsv1.BroadcastJobList
 	if err := r.List(ctx, &childJobs, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}); err != nil {
-		log.Error(err, "unable to list child Jobs")
+		log.V(0).Error(err, "unable to list child Jobs")
 		return ctrl.Result{}, err
 	}
 
@@ -122,7 +122,9 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			activeJobs = append(activeJobs, &childJobs.Items[i])
 		case appsv1.JobConditionType(appsv1.PhaseFailed):
 			failedJobs = append(failedJobs, &childJobs.Items[i])
+			log.Info("Failed type", "job", finishedType, appsv1.JobConditionType(appsv1.PhaseCompleted))
 		case appsv1.JobConditionType(appsv1.PhaseCompleted):
+			log.Info("Finished type", "job", finishedType, appsv1.JobConditionType(appsv1.PhaseCompleted))
 			successfulJobs = append(successfulJobs, &childJobs.Items[i])
 		}
 
@@ -130,7 +132,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// the active jobs themselves.
 		scheduledTimeForJob, err := getScheduledTimeForJob(&job)
 		if err != nil {
-			log.Error(err, "unable to parse schedule time for child job", "job", &job)
+			log.V(0).Error(err, "unable to parse schedule time for child job", "job", &job)
 			continue
 		}
 		if scheduledTimeForJob != nil {
@@ -149,7 +151,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	for _, activeJob := range activeJobs {
 		jobRef, err := ref.GetReference(r.Scheme, activeJob)
 		if err != nil {
-			log.Error(err, "unable to make reference to active job", "job", activeJob)
+			log.V(0).Error(err, "unable to make reference to active job", "job", activeJob)
 			continue
 		}
 		cbj.Status.Active = append(cbj.Status.Active, *jobRef)
@@ -173,7 +175,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		with any other updates, and can have separate permissions.
 	*/
 	if err := r.Status().Update(ctx, cbj); err != nil {
-		log.Error(err, "unable to update CronJob status")
+		log.V(0).Error(err, "unable to update CronJob status")
 		return ctrl.Result{}, err
 	}
 
@@ -191,7 +193,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				break
 			}
 			if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
-				log.Error(err, "unable to delete old failed job", "job", job)
+				log.V(0).Error(err, "unable to delete old failed job", "job", job)
 			} else {
 				log.V(0).Info("deleted old failed job", "job", job)
 			}
@@ -210,7 +212,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				break
 			}
 			if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
-				log.Error(err, "unable to delete old successful job", "job", job)
+				log.V(0).Error(err, "unable to delete old successful job", "job", job)
 			} else {
 				log.V(0).Info("deleted old successful job", "job", job)
 			}
@@ -279,7 +281,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// jobs at (or anything we missed).
 	missedRun, nextRun, err := getNextSchedule(cbj, r.Now())
 	if err != nil {
-		log.Error(err, "unable to figure out CronJob schedule")
+		log.V(1).Error(err, "unable to figure out CronJob schedule")
 		// we don't really care about requeuing until we get an update that
 		// fixes the schedule, so don't return an error
 		return ctrl.Result{}, nil
@@ -290,7 +292,7 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		out if we actually need to run.
 	*/
 	scheduledResult := ctrl.Result{RequeueAfter: nextRun.Sub(r.Now())} // save this so we can re-use it elsewhere
-	log = log.WithValues("now", r.Now(), "next run", nextRun)
+	log = log.V(1).WithValues("now", r.Now(), "next run", nextRun)
 
 	/*
 		### 6: Run a new job if it's on schedule, not past the deadline, and not blocked by our concurrency policy
@@ -333,14 +335,14 @@ func (r *CronBroadcastJobReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// actually make the job...
 	job, err := constructJobForCronJob(cbj, missedRun)
 	if err != nil {
-		log.Error(err, "unable to construct job from template")
+		log.V(0).Error(err, "unable to construct job from template")
 		// don't bother requeuing until we get a change to the spec
 		return scheduledResult, nil
 	}
 
 	// ...and create it on the cluster
 	if err := r.Create(ctx, job); err != nil {
-		log.Error(err, "unable to create Job for BroadcastJob", "job", job)
+		log.V(0).Error(err, "unable to create Job for BroadcastJob", "job", job)
 		return ctrl.Result{}, err
 	}
 
