@@ -29,6 +29,12 @@ helm install tugboat tugboat/tugboat
 
 ## Uninstall
 
+```bash
+helm uninstall tugboat 
+```
+
+# Deploy
+
 - Create cronbroadcast job. `touch cronbroadcast.yaml`
 
 ```yaml
