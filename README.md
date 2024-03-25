@@ -13,10 +13,57 @@ Introducing a lightweight Kubernetes operator for BroadcastJobs, enabling effici
 - **Perfect for Learning Go:** Built as a learning project, it showcases Go development practices while creating a valuable Kubernetes tool.
 Ideal for:
 
-Cluster-wide maintenance tasks
-Diagnostics and data collection
-Distributing workloads across all nodes
-Get started today and experience effortless cluster-wide pod deployments!
+- Cluster-wide maintenance tasks
+- Diagnostics and data collection
+- Distributing workloads across all nodes
+- Get started today and experience effortless cluster-wide pod deployments!
+
+## Install 
+
+```bash
+helm repo add tugboat https://mehuaniket.github.io/tools/tugboat/index.yaml
+helm install tugboat tugboat/tugboat
+```
+
+## Uninstall
+
+- Create cronbroadcast job. `touch cronbroadcast.yaml`
+
+```yaml
+apiVersion: apps.tugboat.cloudrasayan.com/v1
+kind: CronBroadcastJob
+metadata:
+  labels:
+    app.kubernetes.io/name: cronbroadcastjob
+    app.kubernetes.io/instance: cronbroadcastjob-sample
+    app.kubernetes.io/part-of: tugboat
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: tugboat
+  name: cronbroadcastjob-sample
+spec:
+  schedule: "*/2 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  broadcastJobTemplate:
+    template:
+      spec:
+        containers:
+          - name: helloworld
+            image: hello-world
+    # restartLimit: 3 #number of retry allowed for each node
+    labels:
+      kubernetes.io/hostname: microk8s-vm
+    nodeSelector:
+      kubernetes.io/os: linux
+    cleanupafter: 500s
+```
+
+- Apply
+
+```
+kubectl apply -f cronbroadcast.yaml
+```
+
 
 ## License
 
