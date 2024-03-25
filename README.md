@@ -23,7 +23,7 @@ Ideal for:
 ## Install 
 
 ```bash
-helm repo add tugboat https://mehuaniket.github.io/tools/tugboat/index.yaml
+helm repo add tugboat https://mehuaniket.github.io/tools/tugboat
 helm install tugboat tugboat/tugboat
 ```
 
