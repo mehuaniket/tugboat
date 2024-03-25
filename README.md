@@ -33,7 +33,7 @@ helm install tugboat tugboat/tugboat
 helm uninstall tugboat 
 ```
 
-# Deploy
+## Deploy
 
 - Create cronbroadcast job. `touch cronbroadcast.yaml`
 
