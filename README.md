@@ -11,6 +11,8 @@ Introducing a lightweight Kubernetes operator for BroadcastJobs, enabling effici
 - **Restart Management:** Define restart limits for individual pods to ensure resilience and manage potential failures.
 - **Minimal Footprint:** Designed for efficiency with a smaller resource footprint than OpenKruise, ideal for resource-conscious environments.
 - **Perfect for Learning Go:** Built as a learning project, it showcases Go development practices while creating a valuable Kubernetes tool.
+
+
 Ideal for:
 
 - Cluster-wide maintenance tasks
